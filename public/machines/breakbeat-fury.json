@@ -1,0 +1,58 @@
+{
+  "id": "breakbeat-fury",
+  "name": "Breakbeat Fury",
+  "bpm": 160,
+  "kit": {
+    "kick": "https://tonejs.github.io/audio/drum-samples/Kit3/kick.mp3",
+    "snare": "https://tonejs.github.io/audio/drum-samples/Kit3/snare.mp3",
+    "hihat": "https://tonejs.github.io/audio/drum-samples/Kit3/hihat.mp3",
+    "crash": "https://tonejs.github.io/audio/drum-samples/Kit3/openhat.mp3"
+  },
+  "pattern": {
+    "steps": 16,
+    "tracks": {
+      "kick": [true, false, false, false, false, false, true, false, false, true, false, false, false, false, true, false],
+      "snare": [false, false, false, false, true, false, false, true, false, false, false, false, true, false, false, true],
+      "hihat": [true, true, false, true, true, true, false, true, true, true, false, true, true, true, false, true],
+      "crash": [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true]
+    }
+  },
+  "typography": {
+    "fontFamily": "var(--font-inter), sans-serif",
+    "fontSize": "2.5rem",
+    "text": ["B", "R", "E", "A", "K", "B", "E", "A", "T"],
+    "colors": {
+      "kick": "#ff6348",
+      "snare": "#feca57",
+      "hihat": "#48dbfb",
+      "crash": "#ff9ff3",
+      "background": "#0f0f23"
+    },
+    "animations": {
+      "kick": {
+        "type": "scale",
+        "intensity": 0.8,
+        "duration": 150,
+        "easing": "ease-out"
+      },
+      "snare": {
+        "type": "rotate",
+        "intensity": 0.3,
+        "duration": 200,
+        "easing": "ease-out"
+      },
+      "hihat": {
+        "type": "translate",
+        "intensity": 0.2,
+        "duration": 80,
+        "easing": "ease-out"
+      },
+      "crash": {
+        "type": "color",
+        "intensity": 1.2,
+        "duration": 500,
+        "easing": "ease-out"
+      }
+    }
+  }
+}

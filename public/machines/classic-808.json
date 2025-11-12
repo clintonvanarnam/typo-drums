@@ -1,0 +1,58 @@
+{
+  "id": "classic-808",
+  "name": "Classic 808",
+  "bpm": 120,
+  "kit": {
+    "kick": "https://tonejs.github.io/audio/drum-samples/Kit7/kick.mp3",
+    "snare": "https://tonejs.github.io/audio/drum-samples/Kit7/snare.mp3",
+    "hihat": "https://tonejs.github.io/audio/drum-samples/Kit7/hihat.mp3",
+    "openhat": "https://tonejs.github.io/audio/drum-samples/Kit7/openhat.mp3"
+  },
+  "pattern": {
+    "steps": 16,
+    "tracks": {
+      "kick": [true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false],
+      "snare": [false, false, false, false, true, false, false, false, false, false, false, false, true, false, false, false],
+      "hihat": [false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false],
+      "openhat": [false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, true]
+    }
+  },
+  "typography": {
+    "fontFamily": "var(--font-orbitron), monospace",
+    "fontSize": "4rem",
+    "text": ["8", "0", "8", " ", "B", "E", "A", "T"],
+    "colors": {
+      "kick": "#ff6b6b",
+      "snare": "#4ecdc4",
+      "hihat": "#45b7d1",
+      "openhat": "#96ceb4",
+      "background": "#2c2c2c"
+    },
+    "animations": {
+      "kick": {
+        "type": "scale",
+        "intensity": 0.5,
+        "duration": 200,
+        "easing": "ease-out"
+      },
+      "snare": {
+        "type": "color",
+        "intensity": 0.8,
+        "duration": 300,
+        "easing": "ease-out"
+      },
+      "hihat": {
+        "type": "translate",
+        "intensity": 0.3,
+        "duration": 150,
+        "easing": "ease-out"
+      },
+      "openhat": {
+        "type": "rotate",
+        "intensity": 0.2,
+        "duration": 400,
+        "easing": "ease-out"
+      }
+    }
+  }
+}

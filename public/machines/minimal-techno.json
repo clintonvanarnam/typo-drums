@@ -1,0 +1,49 @@
+{
+  "id": "minimal-techno",
+  "name": "Minimal Techno",
+  "bpm": 130,
+  "kit": {
+    "kick": "https://tonejs.github.io/audio/drum-samples/Kit8/kick.mp3",
+    "snare": "https://tonejs.github.io/audio/drum-samples/Kit8/snare.mp3",
+    "hihat": "https://tonejs.github.io/audio/drum-samples/Kit8/hihat.mp3"
+  },
+  "pattern": {
+    "steps": 16,
+    "tracks": {
+      "kick": [true, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false],
+      "snare": [false, false, false, false, true, false, false, false, false, false, false, false, true, false, false, false],
+      "hihat": [false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true]
+    }
+  },
+  "typography": {
+    "fontFamily": "var(--font-courier), monospace",
+    "fontSize": "3rem",
+    "text": ["M", "I", "N", "I", "M", "A", "L"],
+    "colors": {
+      "kick": "#ffffff",
+      "snare": "#ff9ff3",
+      "hihat": "#54a0ff",
+      "background": "#1e1e1e"
+    },
+    "animations": {
+      "kick": {
+        "type": "opacity",
+        "intensity": 0.7,
+        "duration": 250,
+        "easing": "ease-out"
+      },
+      "snare": {
+        "type": "scale",
+        "intensity": 0.4,
+        "duration": 200,
+        "easing": "ease-out"
+      },
+      "hihat": {
+        "type": "color",
+        "intensity": 0.6,
+        "duration": 100,
+        "easing": "ease-out"
+      }
+    }
+  }
+}
