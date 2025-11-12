@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 
-type StepValue = 0 | 1 | 2 | 3; // 0 = empty, 1 = kick, 2 = snare, 3 = hi-hat
+type StepValue = 0 | 1 | 2 | 3 | 4; // 0 = empty, 1 = kick, 2 = snare, 3 = hi-hat, 4 = wood block
 
 export default function TypoDrums01() {
   const [isPlayingQuarter, setIsPlayingQuarter] = useState(false);
@@ -22,6 +22,10 @@ export default function TypoDrums01() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const patternRef = useRef<StepValue[]>([]);
   const totalStepsRef = useRef<number>(5);
+  const originalPatternRef = useRef<StepValue[]>([]); // Store original pattern during fill
+  const fillStartTickRef = useRef(-1); // When the fill started
+  const fillPatternRef = useRef<StepValue[]>([]); // Random fill pattern
+  const [isFillActive, setIsFillActive] = useState(false);
 
   const totalSteps = numColumns * numRows;
 
@@ -206,6 +210,31 @@ export default function TypoDrums01() {
     noise.stop(now + 0.05);
   };
 
+  const playWoodBlock = () => {
+    if (!audioContextRef.current) return;
+    
+    const ctx = audioContextRef.current;
+    const now = ctx.currentTime;
+    
+    // Wood block is a short, high-pitched tone with some noise
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    // High frequency for wood block sound
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.exponentialRampToValueAtTime(600, now + 0.02);
+    
+    // Very short, percussive envelope
+    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.03);
+    
+    osc.start(now);
+    osc.stop(now + 0.03);
+  };
+
   const playSound = (stepValue: StepValue) => {
     if (stepValue === 1) {
       playKick();
@@ -213,6 +242,8 @@ export default function TypoDrums01() {
       playSnare();
     } else if (stepValue === 3) {
       playHiHat();
+    } else if (stepValue === 4) {
+      playWoodBlock();
     }
   };
 
@@ -344,6 +375,51 @@ export default function TypoDrums01() {
     setIsPlayingSixteenth(prev => !prev);
   };
 
+  const handleFill = () => {
+    if (isFillActive) return; // Don't trigger if already in fill
+    
+    // Store original pattern
+    originalPatternRef.current = [...patternRef.current];
+    
+    // Generate random fill pattern (only first 4 steps for 4-beat fill)
+    const randomFill: StepValue[] = [...patternRef.current];
+    for (let i = 0; i < Math.min(4, totalStepsRef.current); i++) {
+      // Random value between 1-4 (kick, snare, hi-hat, wood block)
+      randomFill[i] = (Math.floor(Math.random() * 4) + 1) as StepValue;
+    }
+    fillPatternRef.current = randomFill;
+    
+    // Mark when fill should start (next quarter note beat)
+    const count = sixteenthNoteCountRef.current;
+    // Start on next quarter note (every 4 sixteenth notes)
+    const nextQuarterTick = Math.ceil((count + 1) / 4) * 4;
+    fillStartTickRef.current = nextQuarterTick;
+    setIsFillActive(true);
+  };
+
+  // Monitor fill state and swap patterns
+  useEffect(() => {
+    if (!isFillActive) return;
+    
+    const checkFill = setInterval(() => {
+      const count = sixteenthNoteCountRef.current;
+      const fillStart = fillStartTickRef.current;
+      
+      if (count >= fillStart && count < fillStart + 16) {
+        // During fill (4 quarter notes = 16 sixteenth notes)
+        patternRef.current = fillPatternRef.current;
+      } else if (count >= fillStart + 16) {
+        // Fill complete, restore original pattern
+        patternRef.current = originalPatternRef.current;
+        setPattern(originalPatternRef.current); // Update state to reflect restored pattern
+        setIsFillActive(false);
+        fillStartTickRef.current = -1;
+      }
+    }, 10);
+    
+    return () => clearInterval(checkFill);
+  }, [isFillActive]);
+
   const handleBpmChange = (newBpm: number) => {
     setBpm(newBpm);
     // Master clock will restart automatically via useEffect dependency
@@ -383,11 +459,20 @@ export default function TypoDrums01() {
           const stroke = stepValue !== 0 ? 'none' : '3px #000';
           const opacity = isCurrentStep ? 0.3 : 1;
           
-          // Calculate font size - scale based on rows and columns, with safer limits
-          // Account for button row (50px) and ensure font fits in grid cell
-          const fontSizeVh = Math.min(50, 150 / numRows);
-          const fontSizeVw = Math.min(40, 170 / numColumns);
-          const fontSize = `clamp(2rem, min(${fontSizeVh}vh, ${fontSizeVw}vw), 70rem)`;
+          // Calculate font size - ensure it fits within available space
+          // Account for controls (~100px), padding, buttons below numbers (~50px), and gaps
+          const availableHeight = window.innerHeight - 180; // Reserve space for controls and padding
+          const availableWidth = window.innerWidth - 40; // Account for side padding
+          
+          // Calculate based on grid cell size
+          const cellHeight = availableHeight / numRows;
+          const cellWidth = availableWidth / numColumns;
+          
+          // Font should fit in the smaller dimension, with some breathing room
+          const fontSizeFromHeight = cellHeight * 0.7; // 70% of cell height
+          const fontSizeFromWidth = cellWidth * 0.8; // 80% of cell width
+          
+          const fontSize = `${Math.min(fontSizeFromHeight, fontSizeFromWidth)}px`;
           
           const handleClick = () => {
             // Toggle between active and rest
@@ -405,6 +490,8 @@ export default function TypoDrums01() {
               setStepValue(stepIndex, 2);
             } else if (e.key === '3') {
               setStepValue(stepIndex, 3);
+            } else if (e.key === '4') {
+              setStepValue(stepIndex, 4);
             } else if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') {
               setStepValue(stepIndex, 0);
             }
@@ -461,6 +548,9 @@ export default function TypoDrums01() {
                 <button onClick={(e) => { e.stopPropagation(); setStepValue(stepIndex, 3); }}>
                   3
                 </button>
+                <button onClick={(e) => { e.stopPropagation(); setStepValue(stepIndex, 4); }}>
+                  4
+                </button>
               </div>
             </div>
           );
@@ -486,6 +576,17 @@ export default function TypoDrums01() {
 
         <button onClick={handlePlayPauseSixteenth}>
           {isPlayingSixteenth ? 'PAUSE ♬' : 'PLAY ♬'}
+        </button>
+
+        <button 
+          onClick={handleFill}
+          disabled={isFillActive}
+          style={{
+            opacity: isFillActive ? 0.5 : 1,
+            cursor: isFillActive ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {isFillActive ? 'FILLING...' : 'FILL'}
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
