@@ -5,12 +5,17 @@ import React, { useState, useRef, useEffect } from 'react';
 type StepValue = 0 | 1 | 2 | 3; // 0 = empty, 1 = kick, 2 = snare, 3 = hi-hat
 
 export default function TypoDrums01() {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlayingQuarter, setIsPlayingQuarter] = useState(false);
+  const [isPlayingEighth, setIsPlayingEighth] = useState(false);
   const [bpm, setBpm] = useState(120);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStepQuarter, setCurrentStepQuarter] = useState(0);
+  const [currentStepEighth, setCurrentStepEighth] = useState(0);
   const [numColumns, setNumColumns] = useState(5);
   const [numRows, setNumRows] = useState(1);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const masterIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const eighthNoteCountRef = useRef(0); // Master counter for 8th notes
+  const lastQuarterTickRef = useRef(-1); // Track last quarter note tick played
+  const lastEighthTickRef = useRef(-1); // Track last eighth note tick played
   const audioContextRef = useRef<AudioContext | null>(null);
   const patternRef = useRef<StepValue[]>([]);
   const totalStepsRef = useRef<number>(5);
@@ -19,6 +24,8 @@ export default function TypoDrums01() {
 
   // Pattern now uses 0, 1, or 2
   const [pattern, setPattern] = useState<StepValue[]>([1, 0, 0, 0, 0]);
+  // Track last non-zero value for each step to preserve display
+  const [lastValues, setLastValues] = useState<StepValue[]>([1, 1, 1, 1, 1]);
 
   // Keep totalSteps ref in sync
   useEffect(() => {
@@ -36,6 +43,13 @@ export default function TypoDrums01() {
       });
       return newPattern;
     });
+    setLastValues(prev => {
+      const newLastValues = Array.from({ length: totalSteps }, (_, i) => {
+        if (i < prev.length) return prev[i];
+        return 1 as StepValue; // Default to kick
+      });
+      return newLastValues;
+    });
   }, [totalSteps]);
 
   // Keep ref in sync with state
@@ -49,6 +63,14 @@ export default function TypoDrums01() {
       newPattern[stepIndex] = value;
       return newPattern;
     });
+    // Update last value if setting to non-zero
+    if (value !== 0) {
+      setLastValues(prev => {
+        const newLastValues = [...prev];
+        newLastValues[stepIndex] = value;
+        return newLastValues;
+      });
+    }
   };
 
   const addColumn = () => {
@@ -76,7 +98,7 @@ export default function TypoDrums01() {
     audioContextRef.current = new AudioContext();
     
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (masterIntervalRef.current) clearInterval(masterIntervalRef.current);
       if (audioContextRef.current) audioContextRef.current.close();
     };
   }, []);
@@ -191,57 +213,104 @@ export default function TypoDrums01() {
     }
   };
 
-  const handlePlayPause = async () => {
-    if (isPlaying) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+  // Master clock runs continuously based on BPM
+  useEffect(() => {
+    if (!isPlayingQuarter && !isPlayingEighth) {
+      // Nothing playing, stop master clock
+      if (masterIntervalRef.current) {
+        clearInterval(masterIntervalRef.current);
+        masterIntervalRef.current = null;
       }
-      setIsPlaying(false);
-      setCurrentStep(0);
-    } else {
+      eighthNoteCountRef.current = 0;
+      return;
+    }
+
+    // Start master clock if not already running
+    if (!masterIntervalRef.current) {
+      const interval = (60 / bpm) * 1000 / 2; // 8th notes (smallest division)
+      
+      masterIntervalRef.current = setInterval(() => {
+        eighthNoteCountRef.current++;
+      }, interval);
+    }
+
+    return () => {
+      if (masterIntervalRef.current) {
+        clearInterval(masterIntervalRef.current);
+        masterIntervalRef.current = null;
+      }
+    };
+  }, [isPlayingQuarter, isPlayingEighth, bpm]);
+
+  // Quarter note sequencer - triggers on every 2nd eighth note tick
+  useEffect(() => {
+    if (!isPlayingQuarter) {
+      setCurrentStepQuarter(0);
+      lastQuarterTickRef.current = -1;
+      return;
+    }
+
+    const checkQuarterNote = setInterval(async () => {
       // Resume audio context on user gesture
       if (audioContextRef.current?.state === 'suspended') {
         await audioContextRef.current.resume();
       }
-      
-      let step = 0;
-      const interval = (60 / bpm) * 1000 / 2; // 8th notes
-      
-      intervalRef.current = setInterval(() => {
-        setCurrentStep(step);
+
+      const count = eighthNoteCountRef.current;
+      if (count % 2 === 0 && count !== lastQuarterTickRef.current) {
+        lastQuarterTickRef.current = count;
+        const step = Math.floor(count / 2) % totalStepsRef.current;
+        setCurrentStepQuarter(step);
         const stepValue = patternRef.current[step];
         if (stepValue !== 0) {
           playSound(stepValue);
         }
-        step = (step + 1) % totalStepsRef.current;
-      }, interval);
-      
-      setIsPlaying(true);
+      }
+    }, 10); // Check frequently
+
+    return () => clearInterval(checkQuarterNote);
+  }, [isPlayingQuarter]);
+
+  // Eighth note sequencer - triggers on every eighth note tick
+  useEffect(() => {
+    if (!isPlayingEighth) {
+      setCurrentStepEighth(0);
+      lastEighthTickRef.current = -1;
+      return;
     }
+
+    const checkEighthNote = setInterval(async () => {
+      // Resume audio context on user gesture
+      if (audioContextRef.current?.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
+      const count = eighthNoteCountRef.current;
+      if (count !== lastEighthTickRef.current) {
+        lastEighthTickRef.current = count;
+        const step = count % totalStepsRef.current;
+        setCurrentStepEighth(step);
+        const stepValue = patternRef.current[step];
+        if (stepValue !== 0) {
+          playSound(stepValue);
+        }
+      }
+    }, 10); // Check frequently
+
+    return () => clearInterval(checkEighthNote);
+  }, [isPlayingEighth]);
+
+  const handlePlayPauseQuarter = () => {
+    setIsPlayingQuarter(prev => !prev);
+  };
+
+  const handlePlayPauseEighth = () => {
+    setIsPlayingEighth(prev => !prev);
   };
 
   const handleBpmChange = (newBpm: number) => {
     setBpm(newBpm);
-    
-    // Restart with new tempo if playing
-    if (isPlaying) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      
-      let step = currentStep;
-      const interval = (60 / newBpm) * 1000 / 2;
-      
-      intervalRef.current = setInterval(() => {
-        setCurrentStep(step);
-        const stepValue = patternRef.current[step];
-        if (stepValue !== 0) {
-          playSound(stepValue);
-        }
-        step = (step + 1) % totalStepsRef.current;
-      }, interval);
-    }
+    // Master clock will restart automatically via useEffect dependency
   };
 
   return (
@@ -267,7 +336,9 @@ export default function TypoDrums01() {
         padding: '2vh 2vw',
       }}>
         {Array.from({ length: totalSteps }).map((_, stepIndex) => {
-          const isCurrentStep = currentStep === stepIndex;
+          const isCurrentStepQuarter = isPlayingQuarter && currentStepQuarter === stepIndex;
+          const isCurrentStepEighth = isPlayingEighth && currentStepEighth === stepIndex;
+          const isCurrentStep = isCurrentStepQuarter || isCurrentStepEighth;
           const stepValue = pattern[stepIndex];
           
           // Determine color based on state
@@ -282,8 +353,12 @@ export default function TypoDrums01() {
           const fontSize = `clamp(2rem, min(${fontSizeVh}vh, ${fontSizeVw}vw), 70rem)`;
           
           const handleClick = () => {
-            // Toggle to empty
-            setStepValue(stepIndex, 0);
+            // Toggle between active and rest
+            if (stepValue === 0) {
+              setStepValue(stepIndex, lastValues[stepIndex]);
+            } else {
+              setStepValue(stepIndex, 0);
+            }
           };
           
           const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -330,7 +405,7 @@ export default function TypoDrums01() {
                   pointerEvents: 'auto',
                 }}
               >
-                {stepValue === 0 ? '1' : stepValue}
+                {stepValue === 0 ? lastValues[stepIndex] : stepValue}
               </div>
               
               <div style={{ 
@@ -364,8 +439,12 @@ export default function TypoDrums01() {
         padding: '20px',
         flexShrink: 0,
       }}>
-        <button onClick={handlePlayPause}>
-          {isPlaying ? 'PAUSE' : 'PLAY'}
+        <button onClick={handlePlayPauseQuarter}>
+          {isPlayingQuarter ? 'PAUSE ♩' : 'PLAY ♩'}
+        </button>
+
+        <button onClick={handlePlayPauseEighth}>
+          {isPlayingEighth ? 'PAUSE ♪' : 'PLAY ♪'}
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
